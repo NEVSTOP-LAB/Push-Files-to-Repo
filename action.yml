@@ -10,7 +10,7 @@ inputs:
   source_folder:
     description: >
       Path to the source file or folder in the current repository.
-      Relative to the repository root. Supports glob patterns.
+      Relative to the repository root.
     required: true
 
   destination_repo:

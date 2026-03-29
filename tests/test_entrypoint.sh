@@ -245,8 +245,7 @@ test_resolve_source_absolute
 # Test: Non-existent path
 test_resolve_source_nonexistent() {
   export INPUT_SOURCE_FOLDER="/nonexistent/path/that/does/not/exist"
-  unset GITHUB_WORKSPACE
-
+  unset GITHUB_WORKSPACE 2>/dev/null || true
   assert_exit_code 1 resolve_source_files
 
   unset INPUT_SOURCE_FOLDER SOURCE_FOLDER
