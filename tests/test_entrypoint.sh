@@ -511,6 +511,279 @@ test_copy_to_root() {
 }
 test_copy_to_root
 
+# Test: Copy directory excludes .git
+test_copy_excludes_git() {
+  local src_dir work_dir
+  src_dir=$(mktemp -d)
+  work_dir=$(mktemp -d)
+
+  # Create source with a .git directory (simulating repo root as source)
+  mkdir -p "${src_dir}/.git/objects"
+  echo "ref: refs/heads/main" > "${src_dir}/.git/HEAD"
+  echo "content" > "${src_dir}/file.txt"
+
+  SOURCE_FOLDER="${src_dir}"
+  export INPUT_DESTINATION_FOLDER="dest"
+  export INPUT_CLEANUP="false"
+
+  cd "${work_dir}"
+  copy_files >/dev/null 2>&1
+
+  if [[ -f "${work_dir}/dest/file.txt" ]] && [[ ! -d "${work_dir}/dest/.git" ]]; then
+    pass "Copy directory excludes .git"
+  else
+    fail "Copy directory excludes .git" \
+         "file.txt exists: $(test -f "${work_dir}/dest/file.txt" && echo yes || echo no), .git exists: $(test -d "${work_dir}/dest/.git" && echo yes || echo no)"
+  fi
+
+  rm -rf "${src_dir}" "${work_dir}"
+  unset SOURCE_FOLDER INPUT_DESTINATION_FOLDER INPUT_CLEANUP
+}
+test_copy_excludes_git
+
+# ============================================================================
+# TEST SUITE: clone_target_repo (mocked)
+# ============================================================================
+
+echo ""
+echo "🧪 Test Suite: clone_target_repo (mocked)"
+echo "──────────────────────────────────────────────────────────"
+
+# Test: GIT_TERMINAL_PROMPT is set to 0
+test_clone_sets_git_terminal_prompt() {
+  if grep -q 'GIT_TERMINAL_PROMPT=0' "${REPO_ROOT}/entrypoint.sh"; then
+    pass "clone_target_repo sets GIT_TERMINAL_PROMPT=0"
+  else
+    fail "clone_target_repo sets GIT_TERMINAL_PROMPT=0"
+  fi
+}
+test_clone_sets_git_terminal_prompt
+
+# Test: clone_target_repo uses extraheader with Basic auth
+test_clone_uses_basic_auth() {
+  export INPUT_TOKEN="ghp_testtoken"
+  export INPUT_DESTINATION_REPO="owner/repo"
+  export INPUT_DESTINATION_BASE_BRANCH="main"
+
+  # Mock git to record the arguments it was called with
+  local call_log
+  call_log=$(mktemp)
+  git() {
+    echo "$*" >> "${call_log}"
+    # For clone (-c ... clone ...), init a real git repo so subsequent git config works
+    if [[ "${1:-}" == "-c" && "${3:-}" == "clone" ]]; then
+      # The clone target directory is the last argument
+      local clone_dir="${!#}"
+      command git init -q "${clone_dir}"
+    elif [[ "${1:-}" == "config" ]]; then
+      command git config "$@"
+    fi
+    return 0
+  }
+  export -f git
+
+  ( clone_target_repo >/dev/null 2>&1 ) || true
+
+  if grep -qF "http.extraheader=Authorization: Basic" "${call_log}"; then
+    pass "clone_target_repo uses http.extraheader with Basic auth"
+  else
+    fail "clone_target_repo uses http.extraheader with Basic auth" "$(cat "${call_log}")"
+  fi
+
+  rm -f "${call_log}"
+  rm -rf "${CLONE_DIR:-}" 2>/dev/null || true
+  unset -f git
+  unset INPUT_TOKEN INPUT_DESTINATION_REPO INPUT_DESTINATION_BASE_BRANCH CLONE_DIR
+}
+test_clone_uses_basic_auth
+
+# Test: clone_target_repo fails on clone error
+test_clone_fails_on_error() {
+  export INPUT_TOKEN="ghp_testtoken"
+  export INPUT_DESTINATION_REPO="owner/repo"
+  export INPUT_DESTINATION_BASE_BRANCH="main"
+
+  # Mock git to fail on clone
+  git() {
+    if [[ "${1:-}" == "-c" && "${3:-}" == "clone" ]]; then
+      return 128
+    fi
+    return 0
+  }
+  export -f git
+
+  local rc=0
+  ( clone_target_repo >/dev/null 2>&1 ) || rc=$?
+
+  if [[ "${rc}" -ne 0 ]]; then
+    pass "clone_target_repo exits on clone failure"
+  else
+    fail "clone_target_repo exits on clone failure" "Expected non-zero exit, got 0"
+  fi
+
+  unset -f git
+  rm -rf "${CLONE_DIR:-}" 2>/dev/null || true
+  unset INPUT_TOKEN INPUT_DESTINATION_REPO INPUT_DESTINATION_BASE_BRANCH CLONE_DIR
+}
+test_clone_fails_on_error
+
+# ============================================================================
+# TEST SUITE: create_pull_request (mocked)
+# ============================================================================
+
+echo ""
+echo "🧪 Test Suite: create_pull_request (mocked)"
+echo "──────────────────────────────────────────────────────────"
+
+# Test: Successful PR creation sets outputs
+test_create_pr_success() {
+  export INPUT_TOKEN="ghp_testtoken"
+  export INPUT_DESTINATION_REPO="owner/repo"
+  export INPUT_PR_TITLE="Test PR"
+  export INPUT_PR_BODY="Test body"
+  export INPUT_DRAFT="false"
+  HEAD_BRANCH="test-branch"
+  DEST_BASE_BRANCH="main"
+
+  # Reset GITHUB_OUTPUT to capture outputs
+  MOCK_OUTPUT=$(mktemp)
+  export GITHUB_OUTPUT="${MOCK_OUTPUT}"
+
+  # Mock curl to return a successful PR response
+  curl() {
+    echo '{"number": 42, "html_url": "https://github.com/owner/repo/pull/42"}'
+    echo "201"
+  }
+  export -f curl
+
+  create_pull_request >/dev/null 2>&1
+
+  local pr_num pr_url
+  pr_num=$(grep '^pr_number=' "${MOCK_OUTPUT}" | cut -d= -f2)
+  pr_url=$(grep '^pr_url=' "${MOCK_OUTPUT}" | cut -d= -f2)
+
+  if [[ "${pr_num}" == "42" ]] && [[ "${pr_url}" == "https://github.com/owner/repo/pull/42" ]]; then
+    pass "Successful PR creation sets correct outputs"
+  else
+    fail "Successful PR creation sets correct outputs" "pr_number=${pr_num}, pr_url=${pr_url}"
+  fi
+
+  rm -f "${MOCK_OUTPUT}"
+  unset -f curl
+  unset INPUT_TOKEN INPUT_DESTINATION_REPO INPUT_PR_TITLE INPUT_PR_BODY INPUT_DRAFT HEAD_BRANCH DEST_BASE_BRANCH
+}
+test_create_pr_success
+
+# Test: PR creation uses Bearer auth header
+test_create_pr_uses_bearer_auth() {
+  export INPUT_TOKEN="ghp_testtoken"
+  export INPUT_DESTINATION_REPO="owner/repo"
+  HEAD_BRANCH="test-branch"
+  DEST_BASE_BRANCH="main"
+  MOCK_OUTPUT=$(mktemp)
+  export GITHUB_OUTPUT="${MOCK_OUTPUT}"
+
+  local curl_args_log
+  curl_args_log=$(mktemp)
+
+  curl() {
+    echo "$*" >> "${curl_args_log}"
+    echo '{"number": 1, "html_url": "https://github.com/owner/repo/pull/1"}'
+    echo "201"
+  }
+  export -f curl
+
+  create_pull_request >/dev/null 2>&1
+
+  if grep -qF "Authorization: Bearer" "${curl_args_log}"; then
+    pass "create_pull_request uses Bearer auth header"
+  else
+    fail "create_pull_request uses Bearer auth header" "$(cat "${curl_args_log}")"
+  fi
+
+  rm -f "${curl_args_log}" "${MOCK_OUTPUT}"
+  unset -f curl
+  unset INPUT_TOKEN INPUT_DESTINATION_REPO HEAD_BRANCH DEST_BASE_BRANCH
+}
+test_create_pr_uses_bearer_auth
+
+# Test: PR already exists returns gracefully
+test_create_pr_already_exists() {
+  export INPUT_TOKEN="ghp_testtoken"
+  export INPUT_DESTINATION_REPO="owner/repo"
+  HEAD_BRANCH="existing-branch"
+  DEST_BASE_BRANCH="main"
+  MOCK_OUTPUT=$(mktemp)
+  export GITHUB_OUTPUT="${MOCK_OUTPUT}"
+
+  local curl_counter_file
+  curl_counter_file=$(mktemp)
+  echo "0" > "${curl_counter_file}"
+
+  curl() {
+    local count
+    count=$(cat "${curl_counter_file}")
+    count=$((count + 1))
+    echo "${count}" > "${curl_counter_file}"
+    if [[ "${count}" -eq 1 ]]; then
+      # First call: POST returns 422 (already exists)
+      echo '{"errors":[{"message":"A pull request already exists for owner:existing-branch"}]}'
+      echo "422"
+    else
+      # Second call: GET lists existing PR
+      echo '[{"number": 99, "html_url": "https://github.com/owner/repo/pull/99"}]'
+    fi
+  }
+  export -f curl
+
+  local rc=0
+  ( create_pull_request >/dev/null 2>&1 ) || rc=$?
+
+  local pr_num
+  pr_num=$(grep '^pr_number=' "${MOCK_OUTPUT}" | cut -d= -f2)
+
+  if [[ "${rc}" -eq 0 ]] && [[ "${pr_num}" == "99" ]]; then
+    pass "PR already exists: returns existing PR info"
+  else
+    fail "PR already exists: returns existing PR info" "rc=${rc}, pr_number=${pr_num}"
+  fi
+
+  rm -f "${MOCK_OUTPUT}" "${curl_counter_file}"
+  unset -f curl
+  unset INPUT_TOKEN INPUT_DESTINATION_REPO HEAD_BRANCH DEST_BASE_BRANCH
+}
+test_create_pr_already_exists
+
+# Test: PR creation failure exits with error
+test_create_pr_failure() {
+  export INPUT_TOKEN="ghp_testtoken"
+  export INPUT_DESTINATION_REPO="owner/repo"
+  HEAD_BRANCH="test-branch"
+  DEST_BASE_BRANCH="main"
+  MOCK_OUTPUT=$(mktemp)
+  export GITHUB_OUTPUT="${MOCK_OUTPUT}"
+
+  curl() {
+    echo '{"message": "Not Found"}'
+    echo "404"
+  }
+  export -f curl
+
+  local rc=0
+  ( create_pull_request >/dev/null 2>&1 ) || rc=$?
+
+  if [[ "${rc}" -ne 0 ]]; then
+    pass "PR creation failure exits with error"
+  else
+    fail "PR creation failure exits with error" "Expected non-zero exit, got 0"
+  fi
+
+  rm -f "${MOCK_OUTPUT}"
+  unset -f curl
+  unset INPUT_TOKEN INPUT_DESTINATION_REPO HEAD_BRANCH DEST_BASE_BRANCH
+}
+test_create_pr_failure
+
 # ============================================================================
 # TEST SUITE: action.yml validation
 # ============================================================================

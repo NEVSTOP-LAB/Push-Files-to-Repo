@@ -95,6 +95,10 @@ clone_target_repo() {
 
   echo "Cloning ${INPUT_DESTINATION_REPO} (branch: ${DEST_BASE_BRANCH}) into ${CLONE_DIR} ..."
 
+  # Disable interactive git credential prompts so the action never hangs
+  # waiting for user input on runners with misconfigured auth.
+  export GIT_TERMINAL_PROMPT=0
+
   # Use http.extraheader for authentication instead of embedding the token in
   # the URL.  This prevents the token from leaking into log output, git remote
   # config, or error messages.
@@ -166,10 +170,11 @@ copy_files() {
     find "${dest_folder}" -mindepth 1 -not -path './.git/*' -not -name '.git' -delete 2>/dev/null || true
   fi
 
-  # Copy files
+  # Copy files (exclude .git to avoid leaking source repo metadata)
   if [[ -d "${SOURCE_FOLDER}" ]]; then
-    # Source is a directory – copy its contents
-    cp -r "${SOURCE_FOLDER}/." "${dest_folder}/"
+    # Source is a directory – copy its contents, excluding .git
+    # Use tar with --exclude to portably copy while skipping .git
+    tar -C "${SOURCE_FOLDER}" --exclude='.git' -cf - . | tar -C "${dest_folder}" -xf -
   else
     # Source is a single file
     cp "${SOURCE_FOLDER}" "${dest_folder}/"
