@@ -234,9 +234,27 @@ create_pull_request() {
     # Check if a PR already exists (422 with "A pull request already exists")
     if echo "${body}" | grep -q "A pull request already exists"; then
       echo "::warning::A pull request already exists for branch '${HEAD_BRANCH}'."
-      local existing_url
-      existing_url=$(echo "${body}" | jq -r '.errors[0].message // empty' | grep -oP 'https://[^ ]+' || true)
-      echo "pr_number=" >> "${GITHUB_OUTPUT:-/dev/null}"
+
+      # Derive the destination owner from "owner/repo"
+      local dest_owner
+      dest_owner=$(printf '%s\n' "${INPUT_DESTINATION_REPO}" | cut -d'/' -f1)
+
+      # Query GitHub for the existing PR on this branch
+      local list_response
+      list_response=$(curl -s \
+        -H "Authorization: token ${INPUT_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/${INPUT_DESTINATION_REPO}/pulls?head=${dest_owner}:${HEAD_BRANCH}&state=open")
+
+      local existing_number existing_url
+      existing_number=$(echo "${list_response}" | jq -r '.[0].number // empty')
+      existing_url=$(echo "${list_response}" | jq -r '.[0].html_url // empty')
+
+      if [[ -z "${existing_number}" || -z "${existing_url}" ]]; then
+        echo "::warning::Unable to determine existing Pull Request details for branch '${HEAD_BRANCH}'."
+      fi
+
+      echo "pr_number=${existing_number}" >> "${GITHUB_OUTPUT:-/dev/null}"
       echo "pr_url=${existing_url}" >> "${GITHUB_OUTPUT:-/dev/null}"
       return 0
     fi
