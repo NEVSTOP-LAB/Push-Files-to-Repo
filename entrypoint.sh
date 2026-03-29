@@ -116,7 +116,7 @@ clone_target_repo() {
 
   # Print the log with any credential values stripped out
   if [[ -n "${clone_log}" ]]; then
-    echo "${clone_log}" | grep -v -e "${INPUT_TOKEN}" -e "${auth_header}" || true
+    echo "${clone_log}" | grep -F -v -e "${INPUT_TOKEN}" -e "${auth_header}" || true
   fi
 
   if [[ "${clone_rc}" -ne 0 ]]; then
