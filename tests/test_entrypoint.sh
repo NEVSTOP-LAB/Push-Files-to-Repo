@@ -768,7 +768,9 @@ test_create_pr_failure() {
   export INPUT_TOKEN="ghp_testtoken"
   export INPUT_DESTINATION_REPO="owner/repo"
   HEAD_BRANCH="test-branch"
-  export DEST_BASE_BRANCH="main"
+  # Used by create_pull_request (sourced function)
+  # shellcheck disable=SC2034
+  DEST_BASE_BRANCH="main"
   MOCK_OUTPUT=$(mktemp)
   export GITHUB_OUTPUT="${MOCK_OUTPUT}"
 
