@@ -99,7 +99,7 @@ clone_target_repo() {
   # the URL.  This prevents the token from leaking into log output, git remote
   # config, or error messages.
   local auth_header
-  auth_header=$(echo -n "x-access-token:${INPUT_TOKEN}" | base64)
+  auth_header=$(echo -n "x-access-token:${INPUT_TOKEN}" | base64 | tr -d '\n')
 
   # Mask the derived credential as well
   echo "::add-mask::${auth_header}"
