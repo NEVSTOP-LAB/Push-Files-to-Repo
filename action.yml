@@ -1,0 +1,121 @@
+name: 'Push Files to Repo'
+description: 'Push files or folders from the current repository to another repository via Pull Request'
+author: 'NEVSTOP-LAB'
+
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+
+inputs:
+  source_folder:
+    description: >
+      Path to the source file or folder in the current repository.
+      Relative to the repository root. Supports glob patterns.
+    required: true
+
+  destination_repo:
+    description: >
+      Target repository in the format "owner/repo".
+    required: true
+
+  destination_folder:
+    description: >
+      Path in the target repository where files will be placed.
+      Relative to the repository root.
+    required: false
+    default: '.'
+
+  destination_base_branch:
+    description: >
+      Base branch of the target repository to create the PR against.
+    required: false
+    default: 'main'
+
+  destination_head_branch:
+    description: >
+      Branch name to create in the target repository for the PR.
+      If not specified, a unique branch name will be generated.
+    required: false
+    default: ''
+
+  token:
+    description: >
+      Personal Access Token (PAT) or GitHub App token with `repo` scope
+      for the target repository. Required for cross-repo operations.
+      Store this as a secret and reference it (e.g., ${{ secrets.PAT }}).
+    required: true
+
+  commit_message:
+    description: >
+      Commit message for the file changes in the target repository.
+    required: false
+    default: 'chore: push files from source repository'
+
+  pr_title:
+    description: >
+      Title for the Pull Request created in the target repository.
+    required: false
+    default: '[Automated] Push files from source repository'
+
+  pr_body:
+    description: >
+      Body/description for the Pull Request.
+    required: false
+    default: 'Automated PR created by [Push-Files-to-Repo](https://github.com/NEVSTOP-LAB/Push-Files-to-Repo) action.'
+
+  git_user_name:
+    description: >
+      Git user.name for the commit. Defaults to github-actions[bot].
+    required: false
+    default: 'github-actions[bot]'
+
+  git_user_email:
+    description: >
+      Git user.email for the commit. Defaults to github-actions bot email.
+    required: false
+    default: '41898282+github-actions[bot]@users.noreply.github.com'
+
+  cleanup:
+    description: >
+      If "true", remove all existing files in the destination folder before
+      copying new files. Default is "false" (merge/overwrite).
+    required: false
+    default: 'false'
+
+  draft:
+    description: >
+      If "true", create the Pull Request as a draft.
+    required: false
+    default: 'false'
+
+outputs:
+  pr_number:
+    description: 'The number of the created Pull Request'
+    value: ${{ steps.create-pr.outputs.pr_number }}
+
+  pr_url:
+    description: 'The URL of the created Pull Request'
+    value: ${{ steps.create-pr.outputs.pr_url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Push files and create PR
+      id: create-pr
+      shell: bash
+      env:
+        INPUT_SOURCE_FOLDER: ${{ inputs.source_folder }}
+        INPUT_DESTINATION_REPO: ${{ inputs.destination_repo }}
+        INPUT_DESTINATION_FOLDER: ${{ inputs.destination_folder }}
+        INPUT_DESTINATION_BASE_BRANCH: ${{ inputs.destination_base_branch }}
+        INPUT_DESTINATION_HEAD_BRANCH: ${{ inputs.destination_head_branch }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_COMMIT_MESSAGE: ${{ inputs.commit_message }}
+        INPUT_PR_TITLE: ${{ inputs.pr_title }}
+        INPUT_PR_BODY: ${{ inputs.pr_body }}
+        INPUT_GIT_USER_NAME: ${{ inputs.git_user_name }}
+        INPUT_GIT_USER_EMAIL: ${{ inputs.git_user_email }}
+        INPUT_CLEANUP: ${{ inputs.cleanup }}
+        INPUT_DRAFT: ${{ inputs.draft }}
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+      run: bash "${GITHUB_ACTION_PATH}/entrypoint.sh"
