@@ -18,6 +18,19 @@ log_end()   { echo "::endgroup::"; }
 log_error() { echo "::error::$1"; }
 
 # ---------------------------------------------------------------------------
+# Mask the token so it never appears in logs
+# ---------------------------------------------------------------------------
+
+mask_token() {
+  if [[ -n "${INPUT_TOKEN:-}" ]]; then
+    # Register the token with GitHub Actions log masking.
+    # Any occurrence of this value in subsequent log output will be replaced
+    # with '***'.
+    echo "::add-mask::${INPUT_TOKEN}"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Validate required inputs
 # ---------------------------------------------------------------------------
 
@@ -82,13 +95,41 @@ clone_target_repo() {
 
   echo "Cloning ${INPUT_DESTINATION_REPO} (branch: ${DEST_BASE_BRANCH}) into ${CLONE_DIR} ..."
 
-  git clone \
+  # Use http.extraheader for authentication instead of embedding the token in
+  # the URL.  This prevents the token from leaking into log output, git remote
+  # config, or error messages.
+  local auth_header
+  auth_header=$(echo -n "x-access-token:${INPUT_TOKEN}" | base64)
+
+  # Mask the derived credential as well
+  echo "::add-mask::${auth_header}"
+
+  # Clone with auth via extraheader. Capture exit code separately so that a
+  # genuine clone failure is not silently swallowed by the output filter.
+  local clone_log clone_rc=0
+  clone_log=$(git -c "http.extraheader=Authorization: Basic ${auth_header}" \
+    clone \
     --depth=1 \
     --branch="${DEST_BASE_BRANCH}" \
-    "https://x-access-token:${INPUT_TOKEN}@github.com/${INPUT_DESTINATION_REPO}.git" \
-    "${CLONE_DIR}"
+    "https://github.com/${INPUT_DESTINATION_REPO}.git" \
+    "${CLONE_DIR}" 2>&1) || clone_rc=$?
+
+  # Print the log with any credential values stripped out
+  if [[ -n "${clone_log}" ]]; then
+    echo "${clone_log}" | grep -v -e "${INPUT_TOKEN}" -e "${auth_header}" || true
+  fi
+
+  if [[ "${clone_rc}" -ne 0 ]]; then
+    log_error "git clone failed (exit code ${clone_rc})."
+    exit 1
+  fi
 
   cd "${CLONE_DIR}"
+
+  # Persist the credential via extraheader so that subsequent push commands
+  # work without embedding the token in the remote URL.
+  git config http.extraheader "Authorization: Basic ${auth_header}"
+
   git config user.name  "${INPUT_GIT_USER_NAME:-github-actions[bot]}"
   git config user.email "${INPUT_GIT_USER_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
 }
@@ -219,6 +260,8 @@ create_pull_request() {
 
 cleanup() {
   if [[ -n "${CLONE_DIR:-}" && -d "${CLONE_DIR}" ]]; then
+    # Remove credentials from git config before deleting the directory
+    git -C "${CLONE_DIR}" config --unset-all http.extraheader 2>/dev/null || true
     rm -rf "${CLONE_DIR}"
   fi
 }
@@ -230,6 +273,10 @@ trap cleanup EXIT
 # ---------------------------------------------------------------------------
 
 main() {
+  log_info "Masking token"
+  mask_token
+  log_end
+
   log_info "Validating inputs"
   validate_inputs
   log_end

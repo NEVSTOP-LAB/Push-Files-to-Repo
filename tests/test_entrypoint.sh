@@ -95,6 +95,89 @@ cleanup_mock() {
 trap cleanup_mock EXIT
 
 # ============================================================================
+# TEST SUITE: mask_token (secret protection)
+# ============================================================================
+
+echo ""
+echo "🧪 Test Suite: mask_token (secret protection)"
+echo "──────────────────────────────────────────────────────────"
+
+# Test: mask_token emits ::add-mask:: command
+test_mask_token_emits_mask() {
+  export INPUT_TOKEN="ghp_supersecrettoken123"
+  local output
+  output=$(mask_token 2>&1)
+  if echo "${output}" | grep -qF "::add-mask::ghp_supersecrettoken123"; then
+    pass "mask_token emits ::add-mask:: with token value"
+  else
+    fail "mask_token emits ::add-mask:: with token value" "Output: ${output}"
+  fi
+  unset INPUT_TOKEN
+}
+test_mask_token_emits_mask
+
+# Test: mask_token does not emit when token is empty
+test_mask_token_empty_token() {
+  export INPUT_TOKEN=""
+  local output
+  output=$(mask_token 2>&1)
+  if echo "${output}" | grep -qF "::add-mask::"; then
+    fail "mask_token should not emit ::add-mask:: when token is empty"
+  else
+    pass "mask_token skips masking when token is empty"
+  fi
+  unset INPUT_TOKEN
+}
+test_mask_token_empty_token
+
+# Test: entrypoint.sh calls mask_token before other operations
+test_entrypoint_masks_before_validate() {
+  if grep -n "mask_token" "${REPO_ROOT}/entrypoint.sh" | head -n1 | grep -q "mask_token"; then
+    local mask_line validate_line
+    mask_line=$(grep -n "mask_token$" "${REPO_ROOT}/entrypoint.sh" | head -n1 | cut -d: -f1)
+    validate_line=$(grep -n "validate_inputs$" "${REPO_ROOT}/entrypoint.sh" | head -n1 | cut -d: -f1)
+    if [[ -n "${mask_line}" ]] && [[ -n "${validate_line}" ]] && [[ "${mask_line}" -lt "${validate_line}" ]]; then
+      pass "mask_token is called before validate_inputs in main()"
+    else
+      fail "mask_token is called before validate_inputs in main()" "mask_token at line ${mask_line}, validate_inputs at line ${validate_line}"
+    fi
+  else
+    fail "mask_token is called in entrypoint.sh"
+  fi
+}
+test_entrypoint_masks_before_validate
+
+# Test: git clone URL does NOT contain the token
+test_no_token_in_clone_url() {
+  if grep -q 'x-access-token:.*INPUT_TOKEN.*github.com' "${REPO_ROOT}/entrypoint.sh"; then
+    fail "Token is not embedded in git clone URL" "Found token in clone URL pattern"
+  else
+    pass "Token is not embedded in git clone URL"
+  fi
+}
+test_no_token_in_clone_url
+
+# Test: http.extraheader is used for authentication
+test_uses_extraheader_auth() {
+  if grep -q 'http.extraheader' "${REPO_ROOT}/entrypoint.sh"; then
+    pass "Uses http.extraheader for git authentication"
+  else
+    fail "Uses http.extraheader for git authentication"
+  fi
+}
+test_uses_extraheader_auth
+
+# Test: cleanup removes credentials from git config
+test_cleanup_removes_credentials() {
+  if grep -q 'config --unset-all http.extraheader' "${REPO_ROOT}/entrypoint.sh"; then
+    pass "Cleanup removes http.extraheader credentials"
+  else
+    fail "Cleanup removes http.extraheader credentials"
+  fi
+}
+test_cleanup_removes_credentials
+
+# ============================================================================
 # TEST SUITE: validate_inputs
 # ============================================================================
 
