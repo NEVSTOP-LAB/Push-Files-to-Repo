@@ -1,5 +1,5 @@
 name: 'Push Files to Repo'
-description: 'Push files or folders from the current repository to another repository via Pull Request'
+description: '通过 Pull Request 将当前仓库的文件或文件夹推送到另一个仓库'
 author: 'NEVSTOP-LAB'
 
 branding:
@@ -9,92 +9,90 @@ branding:
 inputs:
   source_folder:
     description: >
-      Path to the source file or folder in the current repository.
-      Relative to the repository root.
+      当前仓库中源文件或文件夹的路径，相对于仓库根目录。
     required: true
 
   destination_repo:
     description: >
-      Target repository in the format "owner/repo".
+      目标仓库，格式为 "owner/repo"。
     required: true
 
   destination_folder:
     description: >
-      Path in the target repository where files will be placed.
-      Relative to the repository root.
+      目标仓库中文件存放的路径，相对于仓库根目录。
     required: false
     default: '.'
 
   destination_base_branch:
     description: >
-      Base branch of the target repository to create the PR against.
+      目标仓库中创建 PR 所基于的基础分支。
     required: false
     default: 'main'
 
   destination_head_branch:
     description: >
-      Branch name to create in the target repository for the PR.
-      If not specified, a unique branch name will be generated.
+      在目标仓库中为 PR 创建的分支名称。
+      如果未指定，将自动生成唯一的分支名称。
     required: false
     default: ''
 
   token:
     description: >
-      Personal Access Token (PAT) or GitHub App token with `repo` scope
-      for the target repository. Required for cross-repo operations.
-      Store this as a secret and reference it (e.g., ${{ secrets.PAT }}).
+      具有目标仓库 `repo` 权限的个人访问令牌（PAT）或 GitHub App Token。
+      跨仓库操作必填。请将其保存为 Secret 并引用
+      （例如 ${{ secrets.PAT }}）。
     required: true
 
   commit_message:
     description: >
-      Commit message for the file changes in the target repository.
+      目标仓库中文件变更的提交信息。
     required: false
     default: 'chore: push files from source repository'
 
   pr_title:
     description: >
-      Title for the Pull Request created in the target repository.
+      在目标仓库中创建的 Pull Request 标题。
     required: false
     default: '[Automated] Push files from source repository'
 
   pr_body:
     description: >
-      Body/description for the Pull Request.
+      Pull Request 的正文/描述。
     required: false
     default: 'Automated PR created by [Push-Files-to-Repo](https://github.com/NEVSTOP-LAB/Push-Files-to-Repo) action.'
 
   git_user_name:
     description: >
-      Git user.name for the commit. Defaults to github-actions[bot].
+      提交的 Git user.name。默认为 github-actions[bot]。
     required: false
     default: 'github-actions[bot]'
 
   git_user_email:
     description: >
-      Git user.email for the commit. Defaults to github-actions bot email.
+      提交的 Git user.email。默认为 github-actions bot 邮箱。
     required: false
     default: '41898282+github-actions[bot]@users.noreply.github.com'
 
   cleanup:
     description: >
-      If "true", remove all existing files in the destination folder before
-      copying new files. Default is "false" (merge/overwrite).
+      如果设为 "true"，在复制新文件前删除目标文件夹中的所有已有文件。
+      默认为 "false"（合并/覆盖）。
     required: false
     default: 'false'
 
   draft:
     description: >
-      If "true", create the Pull Request as a draft.
+      如果设为 "true"，创建草稿 Pull Request。
     required: false
     default: 'false'
 
 outputs:
   pr_number:
-    description: 'The number of the created Pull Request'
+    description: '创建的 Pull Request 编号'
     value: ${{ steps.create-pr.outputs.pr_number }}
 
   pr_url:
-    description: 'The URL of the created Pull Request'
+    description: '创建的 Pull Request URL'
     value: ${{ steps.create-pr.outputs.pr_url }}
 
 runs:

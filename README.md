@@ -1,20 +1,20 @@
 # Push-Files-to-Repo
 
-A GitHub Action that pushes files or folders from one repository to another via **Pull Request**.
+一个通过 **Pull Request** 将文件或文件夹从一个仓库推送到另一个仓库的 GitHub Action。
 
-## Features
+## 功能特性
 
-- 📁 Copy specific files or entire folders to another repository
-- 🔀 Creates a Pull Request (not a direct push) for review
-- 🧹 Optional cleanup of destination folder before copying
-- 📝 Configurable commit messages, PR title, and description
-- 🔒 Supports PAT and GitHub App tokens for authentication
-- 📋 Draft PR support
+- 📁 复制指定文件或整个文件夹到另一个仓库
+- 🔀 通过创建 Pull Request（而非直接推送）进行代码审查
+- 🧹 可选在复制前清理目标文件夹
+- 📝 可配置提交信息、PR 标题和描述
+- 🔒 支持 PAT 和 GitHub App Token 认证
+- 📋 支持创建草稿 PR
 
-## Quick Start
+## 快速开始
 
 ```yaml
-name: Push files to another repo
+name: 推送文件到另一个仓库
 
 on:
   push:
@@ -34,52 +34,52 @@ jobs:
           token: ${{ secrets.PAT }}
 ```
 
-## Inputs
+## 输入参数
 
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `source_folder` | ✅ | – | Path to the source file or folder (relative to repo root) |
-| `destination_repo` | ✅ | – | Target repository in `owner/repo` format |
-| `destination_folder` | ❌ | `.` | Target path in the destination repository |
-| `destination_base_branch` | ❌ | `main` | Base branch to create the PR against |
-| `destination_head_branch` | ❌ | auto-generated | Branch name for the PR |
-| `token` | ✅ | – | PAT or GitHub App token with repo access |
-| `commit_message` | ❌ | `chore: push files from source repository` | Commit message |
-| `pr_title` | ❌ | `[Automated] Push files from source repository` | PR title |
-| `pr_body` | ❌ | auto | PR description |
-| `git_user_name` | ❌ | `github-actions[bot]` | Git committer name |
-| `git_user_email` | ❌ | `41898282+github-actions[bot]@users.noreply.github.com` | Git committer email |
-| `cleanup` | ❌ | `false` | Remove existing files in destination folder before copy |
-| `draft` | ❌ | `false` | Create the PR as a draft |
+| 参数 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `source_folder` | ✅ | – | 源文件或文件夹路径（相对于仓库根目录） |
+| `destination_repo` | ✅ | – | 目标仓库，格式为 `owner/repo` |
+| `destination_folder` | ❌ | `.` | 目标仓库中的存放路径 |
+| `destination_base_branch` | ❌ | `main` | 创建 PR 的目标基础分支 |
+| `destination_head_branch` | ❌ | 自动生成 | PR 的分支名称 |
+| `token` | ✅ | – | 具有目标仓库访问权限的 PAT 或 GitHub App Token |
+| `commit_message` | ❌ | `chore: push files from source repository` | 提交信息 |
+| `pr_title` | ❌ | `[Automated] Push files from source repository` | PR 标题 |
+| `pr_body` | ❌ | 自动生成 | PR 描述 |
+| `git_user_name` | ❌ | `github-actions[bot]` | Git 提交者名称 |
+| `git_user_email` | ❌ | `41898282+github-actions[bot]@users.noreply.github.com` | Git 提交者邮箱 |
+| `cleanup` | ❌ | `false` | 复制前是否删除目标文件夹中的已有文件 |
+| `draft` | ❌ | `false` | 是否创建草稿 PR |
 
-## Outputs
+## 输出参数
 
-| Output | Description |
-|--------|-------------|
-| `pr_number` | Number of the created Pull Request |
-| `pr_url` | URL of the created Pull Request |
+| 输出 | 说明 |
+|------|------|
+| `pr_number` | 创建的 Pull Request 编号 |
+| `pr_url` | 创建的 Pull Request URL |
 
-## Authentication
+## 认证方式
 
-This action requires a token with access to the **target repository**. The default `GITHUB_TOKEN` only has access to the current repository and **cannot** be used for cross-repo operations.
+此 Action 需要一个具有**目标仓库**访问权限的 Token。默认的 `GITHUB_TOKEN` 仅能访问当前仓库，**无法**用于跨仓库操作。
 
-### Option 1: Fine-grained Personal Access Token (Recommended for personal use)
+### 方式一：细粒度个人访问令牌（个人使用推荐）
 
-1. Go to **GitHub Settings → Developer Settings → Personal Access Tokens → Fine-grained tokens**
-2. Click **Generate new token**
-3. Under **Repository access**, select the target repository
-4. Set permissions:
-   - `Contents`: **Read and write**
-   - `Pull requests`: **Read and write**
-5. Save the token as a repository secret (e.g., `PAT`)
+1. 进入 **GitHub Settings → Developer Settings → Personal Access Tokens → Fine-grained tokens**
+2. 点击 **Generate new token**
+3. 在 **Repository access** 下选择目标仓库
+4. 设置权限：
+   - `Contents`：**Read and write**
+   - `Pull requests`：**Read and write**
+5. 将 Token 保存为仓库 Secret（例如 `PAT`）
 
-### Option 2: GitHub App Token (Recommended for organizations)
+### 方式二：GitHub App Token（组织使用推荐）
 
-1. Create a GitHub App with these repository permissions:
-   - `Contents`: **Read and write**
-   - `Pull requests`: **Read and write**
-2. Install the app on the target repository
-3. Use [actions/create-github-app-token](https://github.com/actions/create-github-app-token) to generate a token:
+1. 创建一个 GitHub App，设置以下仓库权限：
+   - `Contents`：**Read and write**
+   - `Pull requests`：**Read and write**
+2. 将该 App 安装到目标仓库
+3. 使用 [actions/create-github-app-token](https://github.com/actions/create-github-app-token) 生成 Token：
 
 ```yaml
 - uses: actions/create-github-app-token@v2
@@ -97,9 +97,9 @@ This action requires a token with access to the **target repository**. The defau
     token: ${{ steps.app-token.outputs.token }}
 ```
 
-## Examples
+## 使用示例
 
-### Push a folder
+### 推送文件夹
 
 ```yaml
 - uses: NEVSTOP-LAB/Push-Files-to-Repo@main
@@ -110,7 +110,7 @@ This action requires a token with access to the **target repository**. The defau
     token: ${{ secrets.PAT }}
 ```
 
-### Push a single file
+### 推送单个文件
 
 ```yaml
 - uses: NEVSTOP-LAB/Push-Files-to-Repo@main
@@ -121,7 +121,7 @@ This action requires a token with access to the **target repository**. The defau
     token: ${{ secrets.PAT }}
 ```
 
-### Clean destination before copy
+### 复制前清理目标文件夹
 
 ```yaml
 - uses: NEVSTOP-LAB/Push-Files-to-Repo@main
@@ -133,7 +133,7 @@ This action requires a token with access to the **target repository**. The defau
     token: ${{ secrets.PAT }}
 ```
 
-### Custom commit message and PR details
+### 自定义提交信息和 PR 详情
 
 ```yaml
 - uses: NEVSTOP-LAB/Push-Files-to-Repo@main
@@ -149,7 +149,7 @@ This action requires a token with access to the **target repository**. The defau
     token: ${{ secrets.PAT }}
 ```
 
-### Create a draft PR
+### 创建草稿 PR
 
 ```yaml
 - uses: NEVSTOP-LAB/Push-Files-to-Repo@main
@@ -160,7 +160,7 @@ This action requires a token with access to the **target repository**. The defau
     token: ${{ secrets.PAT }}
 ```
 
-### Use PR outputs
+### 使用 PR 输出
 
 ```yaml
 - uses: NEVSTOP-LAB/Push-Files-to-Repo@main
@@ -175,23 +175,23 @@ This action requires a token with access to the **target repository**. The defau
     echo "URL: ${{ steps.push.outputs.pr_url }}"
 ```
 
-## How It Works
+## 工作原理
 
-1. **Validates** all required inputs and checks the source path exists
-2. **Clones** the target repository (shallow clone of the base branch)
-3. **Creates** a new branch in the target repository
-4. **Commits** and **pushes** the changes
-5. **Creates** a Pull Request via the GitHub REST API
-6. **Outputs** the PR number and URL
+1. **校验**所有必填输入参数，检查源路径是否存在
+2. **克隆**目标仓库（浅克隆基础分支）
+3. **创建**目标仓库中的新分支
+4. **提交**并**推送**变更
+5. 通过 GitHub REST API **创建** Pull Request
+6. **输出** PR 编号和 URL
 
-## Design Documentation
+## 设计文档
 
-See [docs/design.md](docs/design.md) for detailed research and design documentation, including:
-- Authentication methods comparison
-- API usage details
-- Security considerations
-- Architecture overview
+详细的研究和设计文档请参阅 [docs/design.md](docs/design.md)，包括：
+- 认证方式对比
+- API 使用详情
+- 安全性考虑
+- 架构概览
 
-## License
+## 许可证
 
 MIT
