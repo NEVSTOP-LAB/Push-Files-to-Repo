@@ -75,10 +75,13 @@ summary() {
 # We extract functions by sourcing a modified version
 # ---------------------------------------------------------------------------
 
-# Create a temp copy without the main call at the bottom
+# Create a temp copy and guard the final main call so it doesn't run in tests
 TEMP_SCRIPT=$(mktemp)
-# Copy everything except the last "main" call
-sed '/^main "\$@"$/d' "${REPO_ROOT}/entrypoint.sh" > "${TEMP_SCRIPT}"
+# Ensure entrypoint.sh can detect that it's being run under unit tests
+export UNIT_TESTING=1
+# Replace a standalone 'main "$@"' call (with optional whitespace/comments)
+# with an environment-guarded invocation so sourcing does not execute main.
+sed -E 's/^[[:space:]]*main[[:space:]]+"\$@"[[:space:]]*(#.*)?$/if [[ -z ${UNIT_TESTING:-} ]]; then main "$@"; fi/' "${REPO_ROOT}/entrypoint.sh" > "${TEMP_SCRIPT}"
 source "${TEMP_SCRIPT}"
 rm -f "${TEMP_SCRIPT}"
 
