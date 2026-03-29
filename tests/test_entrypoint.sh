@@ -81,7 +81,9 @@ TEMP_SCRIPT=$(mktemp)
 export UNIT_TESTING=1
 # Replace a standalone 'main "$@"' call (with optional whitespace/comments)
 # with an environment-guarded invocation so sourcing does not execute main.
+# shellcheck disable=SC2016
 sed -E 's/^[[:space:]]*main[[:space:]]+"\$@"[[:space:]]*(#.*)?$/if [[ -z ${UNIT_TESTING:-} ]]; then main "$@"; fi/' "${REPO_ROOT}/entrypoint.sh" > "${TEMP_SCRIPT}"
+# shellcheck disable=SC1090
 source "${TEMP_SCRIPT}"
 rm -f "${TEMP_SCRIPT}"
 
@@ -353,7 +355,8 @@ echo "────────────────────────�
 test_branch_custom_name() {
   export INPUT_DESTINATION_HEAD_BRANCH="my-custom-branch"
 
-  # Mock git checkout
+  # Mock git checkout (invoked indirectly via create_head_branch)
+  # shellcheck disable=SC2317
   git() { true; }
   export -f git
 
@@ -369,7 +372,8 @@ test_branch_custom_name
 test_branch_auto_name() {
   export INPUT_DESTINATION_HEAD_BRANCH=""
 
-  # Mock git checkout
+  # Mock git checkout (invoked indirectly via create_head_branch)
+  # shellcheck disable=SC2317
   git() { true; }
   export -f git
 
@@ -396,7 +400,7 @@ echo "────────────────────────�
 
 # Test: Copy directory contents
 test_copy_directory() {
-  local src_dir dest_dir work_dir
+  local src_dir work_dir
   src_dir=$(mktemp -d)
   work_dir=$(mktemp -d)
 
@@ -568,6 +572,7 @@ test_clone_uses_basic_auth() {
   # Mock git to record the arguments it was called with
   local call_log
   call_log=$(mktemp)
+  # shellcheck disable=SC2317
   git() {
     echo "$*" >> "${call_log}"
     # For clone (-c ... clone ...), init a real git repo so subsequent git config works
@@ -604,6 +609,7 @@ test_clone_fails_on_error() {
   export INPUT_DESTINATION_BASE_BRANCH="main"
 
   # Mock git to fail on clone
+  # shellcheck disable=SC2317
   git() {
     if [[ "${1:-}" == "-c" && "${3:-}" == "clone" ]]; then
       return 128
@@ -650,6 +656,7 @@ test_create_pr_success() {
   export GITHUB_OUTPUT="${MOCK_OUTPUT}"
 
   # Mock curl to return a successful PR response
+  # shellcheck disable=SC2317
   curl() {
     echo '{"number": 42, "html_url": "https://github.com/owner/repo/pull/42"}'
     echo "201"
@@ -686,6 +693,7 @@ test_create_pr_uses_bearer_auth() {
   local curl_args_log
   curl_args_log=$(mktemp)
 
+  # shellcheck disable=SC2317
   curl() {
     echo "$*" >> "${curl_args_log}"
     echo '{"number": 1, "html_url": "https://github.com/owner/repo/pull/1"}'
@@ -720,6 +728,7 @@ test_create_pr_already_exists() {
   curl_counter_file=$(mktemp)
   echo "0" > "${curl_counter_file}"
 
+  # shellcheck disable=SC2317
   curl() {
     local count
     count=$(cat "${curl_counter_file}")
@@ -759,10 +768,11 @@ test_create_pr_failure() {
   export INPUT_TOKEN="ghp_testtoken"
   export INPUT_DESTINATION_REPO="owner/repo"
   HEAD_BRANCH="test-branch"
-  DEST_BASE_BRANCH="main"
+  export DEST_BASE_BRANCH="main"
   MOCK_OUTPUT=$(mktemp)
   export GITHUB_OUTPUT="${MOCK_OUTPUT}"
 
+  # shellcheck disable=SC2317
   curl() {
     echo '{"message": "Not Found"}'
     echo "404"
