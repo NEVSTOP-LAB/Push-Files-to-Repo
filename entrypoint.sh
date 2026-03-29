@@ -214,7 +214,7 @@ create_pull_request() {
   local response
   response=$(curl -s -w "\n%{http_code}" \
     -X POST \
-    -H "Authorization: token ${INPUT_TOKEN}" \
+    -H "Authorization: Bearer ${INPUT_TOKEN}" \
     -H "Accept: application/vnd.github.v3+json" \
     -d "$(jq -n \
       --arg title "${INPUT_PR_TITLE:-[Automated] Push files from source repository}" \
