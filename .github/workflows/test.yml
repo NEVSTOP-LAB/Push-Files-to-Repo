@@ -1,0 +1,55 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run unit tests
+        run: bash tests/test_entrypoint.sh
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck on entrypoint.sh
+        run: shellcheck entrypoint.sh
+
+      - name: Run shellcheck on test script
+        run: shellcheck tests/test_entrypoint.sh
+
+  action-yaml-lint:
+    name: Action YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate action.yml
+        run: |
+          python3 -c "
+          import yaml, sys
+          with open('action.yml') as f:
+              data = yaml.safe_load(f)
+          assert 'name' in data, 'Missing name'
+          assert 'description' in data, 'Missing description'
+          assert 'inputs' in data, 'Missing inputs'
+          assert 'outputs' in data, 'Missing outputs'
+          assert 'runs' in data, 'Missing runs'
+          print('✅ action.yml is valid')
+          "
